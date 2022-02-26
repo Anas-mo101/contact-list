@@ -7,27 +7,27 @@
     {
         "user": "Lee Saw Loy",
         "phone": "0161231346",
-        "check-in": "2020-07-11 15:39:59"
+        "check-in": "2022-02-19 16:10:05"
     },
     {
         "user": "Khaw Tong Lin",
         "phone": "0158398109",
-        "check-in": "2020-08-19 11:10:18"
+        "check-in": "2022-02-22 11:10:18"
     },
     {
         "user": "Lim Kok Lin",
         "phone": "0168279101",
-        "check-in": "2020-08-19 11:11:35"
+        "check-in": "2022-02-08 11:11:35"
     },
     {
         "user": "Low Jun Wei",
         "phone": "0112731912",
-        "check-in": "2020-08-15 13:00:05"
+        "check-in": "2022-02-02 13:00:05"
     },
     {
         "user": "Yong Weng Kai",
         "phone": "0172332743",
-        "check-in": "2020-07-31 18:10:11"
+        "check-in": "2022-02-26 10:10:05"
     },
     {
         "user": "Jayden Lee",
@@ -37,7 +37,7 @@
     {
         "user": "Kong Kah Yan",
         "phone": "0111931233",
-        "check-in": "2020-07-11 12:00:00"
+        "check-in": "2022-02-26 05:10:05"
     },
     {
         "user": "Jasmine Lau",
@@ -45,7 +45,17 @@
         "check-in": "2020-08-01 12:10:05"
     },
     {
+        "user": "Anas Mohamed",
+        "phone": "0168551554",
+        "check-in": "2020-08-01 12:10:05"
+    },
+    {
         "user": "Chan Saw Lin",
+        "phone": "016783239",
+        "check-in": "2020-08-23 11:59:05"
+    },
+    {
+        "user": "Mo Salah",
         "phone": "016783239",
         "check-in": "2020-08-23 11:59:05"
     }
