@@ -1,16 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:contact_list/contact_list.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:io';
+
 
 void main() {
-    FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    if (kReleaseMode) { // handle errors
-      exit(1);
-    }
-  };
-  
   runApp(const MyApp());
 }
 
