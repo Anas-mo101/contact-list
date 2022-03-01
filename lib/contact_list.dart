@@ -1,10 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'contact.dart';
 
 class ContactList extends StatefulWidget {
   const ContactList({Key? key}) : super(key: key);
@@ -15,13 +13,14 @@ class ContactList extends StatefulWidget {
 
 class _ContactListState extends State<ContactList> {
   final scontroller = ScrollController();
-  late List<Contact> Contacts;
-  var dataLength;
+  late List<Contact> Contacts = [];
+  var dataLength = 0;
+  var timestampflag = true;
 
   @override
   void initState() {
     super.initState();
-    refreshContacts();
+    getContacts();
     scontroller.addListener(() {
       if (scontroller.position.atEdge) {
         final pos = scontroller.position.pixels == 0;
@@ -39,11 +38,26 @@ class _ContactListState extends State<ContactList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Contact List")),
+      appBar: AppBar(
+        title: const Text("Contact List"),
+        leading: const Icon(Icons.menu),
+        actions: <Widget>[
+          Padding(
+              padding: const EdgeInsets.only(right: 20.0),
+              child: GestureDetector(
+                onTap: () {
+                  timestampSwitch(timestampflag);
+                },
+                child: const Icon(
+                  Icons.date_range,
+                  size: 26.0,
+                ),
+              ))
+        ],
+      ),
       body: Center(
         child: FutureBuilder(
           builder: (context, snapshot) {
-            // showData = json.decode(snapshot.data.toString());
             return RefreshIndicator(
                 onRefresh: genContacts,
                 child: ListView.builder(
@@ -54,7 +68,7 @@ class _ContactListState extends State<ContactList> {
                       return a.compareTo(b);
                     });
                     return ListTile(
-                      // leading: Icon(Flutter),
+                      leading: const Icon(Icons.person),
                       isThreeLine: true,
                       title: Padding(
                         padding: const EdgeInsets.only(bottom: 10.0),
@@ -64,7 +78,8 @@ class _ContactListState extends State<ContactList> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(Contacts[index].phone),
-                          Text(parseCheckIn(Contacts[index].checkin))
+                          Text(parseCheckIn(
+                              Contacts[index].checkin, timestampflag))
                         ],
                       ),
                     );
@@ -78,95 +93,108 @@ class _ContactListState extends State<ContactList> {
 
   Future<void> genContacts() async {
     var names = await http.get(
-        Uri.parse('https://randommer.io/api/Name?nameType=fullname&quantity=5'),
+        Uri.parse(
+            'https://randommer.io/api/Name?nameType=fullname&quantity=5'), // limited to 1000 call/day
         headers: {"X-Api-Key": "97fbe4ad9b914a38a4acb129eb0b6c1b"});
     var phones = await http.get(
         Uri.parse(
-            'https://randommer.io/api/Phone/Generate?CountryCode=my&Quantity=5'),
+            'https://randommer.io/api/Phone/Generate?CountryCode=my&Quantity=5'), // limited to 1000 call/day
         headers: {"X-Api-Key": "97fbe4ad9b914a38a4acb129eb0b6c1b"});
 
     if (names.statusCode == 200 && phones.statusCode == 200) {
+      late List<Contact> newContacts = [];
       var name = json.decode(names.body);
       var phone = json.decode(phones.body);
       for (int i = 0; i < 5; i++) {
         var now = DateTime.now().toString();
-        Contact newContact = new Contact(name[i], phone[i], now);
+        Contact newContact = Contact(name[i], phone[i], now);
+        newContacts.add(newContact);
         setState(() {
           Contacts.add(newContact);
           dataLength++;
         });
       }
-      // updateDatabase();
+      updateDatabase(newContacts); // add newly generated contacts to database
     } else {
       throw Exception('Api Failed');
     }
   }
 
-  Future<void> refreshContacts() async {
-    //genContacts();
-    String response = await rootBundle.loadString('assets/contacts.json');
-    var data = await json.decode(response);
-    List<Contact> contacts =
-        List<Contact>.from(data.map((i) => Contact.fromJson(i)));
+  void timestampSwitch(bool current) {
+    var flag;
+    if (current) {
+      flag = false;
+    } else {
+      flag = true;
+    }
+    setState(() {
+      timestampflag = flag;
+    });
+    getContacts();
+  }
+
+  void updateDatabase(List<Contact> cons) async {
+    String jsonContacts = jsonEncode(cons);
+    var response = await http.post(
+        Uri.parse('http://localhost:3000/addcontacts'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonContacts);
+  }
+
+  Future<void> getContacts() async {
+    List<Contact> contacts = [];
+    var data;
+    try {
+      var _contacts =
+          await http.get(Uri.parse('http://localhost:3000/getcontacts'));
+      if (_contacts.statusCode == 200) {
+        data = await json.decode(_contacts.body);
+        // print(data);
+        contacts = List<Contact>.from(data.map((i) => Contact.fromJson(i)));
+      }
+    } catch (e) {
+      print("fetching data failed");
+      print(e);
+    }
     setState(() {
       Contacts = contacts;
       dataLength = contacts.length;
     });
   }
 
-  parseCheckIn(timestamp) {
-    var now = DateTime.now();
-    var date = DateTime.parse(timestamp);
-    var diff = now.difference(date);
+  parseCheckIn(timestamp, flag) {
+    if (flag) {
+      var now = DateTime.now();
+      var date = DateTime.parse(timestamp);
+      var diff = now.difference(date);
 
-    if (diff.inSeconds < 1) {
-      return "now";
-    } else if (diff.inSeconds >= 1 && diff.inSeconds < 60) {
-      return diff.inSeconds.toString() + " seconds ago";
-    } else if (diff.inMinutes >= 1 && diff.inMinutes < 60) {
-      return diff.inMinutes.toString() + " minutes ago";
-    } else if (diff.inHours >= 1 && diff.inHours < 24) {
-      return diff.inHours.toString() + " hours ago";
-    } else if (diff.inDays >= 1 && diff.inDays < 7) {
-      if (diff.inDays == 1) {
-        return diff.inDays.toString() + " day ago";
+      if (diff.inSeconds < 1) {
+        return "now";
+      } else if (diff.inSeconds >= 1 && diff.inSeconds < 60) {
+        return diff.inSeconds.toString() + " seconds ago";
+      } else if (diff.inMinutes >= 1 && diff.inMinutes < 60) {
+        return diff.inMinutes.toString() + " minutes ago";
+      } else if (diff.inHours >= 1 && diff.inHours < 24) {
+        return diff.inHours.toString() + " hours ago";
+      } else if (diff.inDays >= 1 && diff.inDays < 7) {
+        if (diff.inDays == 1) {
+          return diff.inDays.toString() + " day ago";
+        } else {
+          return diff.inDays.toString() + " days ago";
+        }
+      } else if (diff.inDays >= 7 && diff.inDays < 30) {
+        if (diff.inDays >= 7 && diff.inDays < 14) {
+          return "one week ago";
+        } else if (diff.inDays >= 14 && diff.inDays < 21) {
+          return "two weeks ago";
+        } else if (diff.inDays >= 21 && diff.inDays < 30) {
+          return "three weeks ago";
+        }
       } else {
-        return diff.inDays.toString() + " days ago";
-      }
-    } else if (diff.inDays >= 7 && diff.inDays < 30) {
-      if (diff.inDays >= 7 && diff.inDays < 14) {
-        return "one week ago";
-      } else if (diff.inDays >= 14 && diff.inDays < 21) {
-        return "two weeks ago";
-      } else if (diff.inDays >= 21 && diff.inDays < 30) {
-        return "three weeks ago";
+        return "more than a month ago";
       }
     } else {
-      return "more than a month ago";
-    }
-  }
-}
-
-class Contact implements Comparable<Contact> {
-  String name;
-  String phone;
-  String checkin;
-  Contact(this.name, this.phone, this.checkin);
-
-  factory Contact.fromJson(dynamic json) {
-    return Contact(json['user'] as String, json['phone'] as String,
-        json['check-in'] as String);
-  }
-
-  @override
-  int compareTo(Contact other) {
-    int flag = DateTime.parse(checkin).compareTo(DateTime.parse(other.checkin));
-    if (flag == 1) {
-      return -1;
-    } else if (flag == -1) {
-      return 1;
-    } else {
-      return 0;
+      return timestamp;
     }
   }
 }
