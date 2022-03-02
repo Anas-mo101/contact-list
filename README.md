@@ -1,16 +1,16 @@
-# contact_list
-
-A new Flutter project.
+# Contact List
+A new Flutter Assessments for vimigo @ vimigoapp.com.
 
 ## Getting Started
+To lunch app first open terminal in Server folder and run "npm start" to start backend server (nodejs) which will handle api requests.
+Now you can proceed to run flutter app normally.
 
-This project is a starting point for a Flutter application.
+## Packages used
+  - cupertino_icons: ^1.0.2 => for icon collection to offer users friendly experience.
+  - http: ^0.13.4 => to handle get and post requests from server.
+  - share_plus: ^3.1.0 => to handle data sharing within other apps
 
-A few resources to get you started if this is your first Flutter project:
 
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
 
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+
+
