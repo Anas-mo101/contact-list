@@ -39,14 +39,14 @@ app.get('/getcontacts', async (req, res) => {
     })
 });
 
-app.get('/getsettings', async (req, res) => {  
-    Settings.findOne({}, {_id:0, __v:0}, (err, result) => { 
+app.get('/gettimestamp', async (req, res) => {  
+    Settings.findOne({_id: '621e6d14781ddfdb22f02b9f'}, {_id:0, __v:0}, (err, result) => { 
         if (err || !result) {
             console.log(err);
             res.json("{}");
         } else {
-            console.log("get contacts");
-            res.json(result);
+            console.log("get timestamp: " + result.timestamp);
+            res.json(result.timestamp);
         } 
     })
 });
@@ -61,7 +61,8 @@ app.post('/addcontacts', async (req, res) => {
     });
 });
 
-app.post('/settimestamp', async (req, res) => {
+app.post('/settimestamp', async (req, res) => { 
+    console.log("set timestamp to: " + req.body.flag);
     Settings.updateOne(
         {_id: '621e6d14781ddfdb22f02b9f' },
         {

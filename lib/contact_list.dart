@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'contact.dart';
+import 'api_handler.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ContactList extends StatefulWidget {
   const ContactList({Key? key}) : super(key: key);
@@ -15,7 +15,9 @@ class _ContactListState extends State<ContactList> {
   final scontroller = ScrollController();
   late List<Contact> Contacts = [];
   var dataLength = 0;
+  var viewLength = 9;
   var timestampflag = true;
+  bool loading = false;
 
   @override
   void initState() {
@@ -25,11 +27,26 @@ class _ContactListState extends State<ContactList> {
       if (scontroller.position.atEdge) {
         final pos = scontroller.position.pixels == 0;
         if (!pos) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('You have reached end of the list',
-                textAlign: TextAlign.center),
-            backgroundColor: Color(0x660000dd),
-          ));
+          if (viewLength == dataLength) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('You have reached end of the list',
+                  textAlign: TextAlign.center),
+              backgroundColor: Color(0x660000dd),
+            ));
+          }
+          setState(() {
+            loading = true;
+          });
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            setState(() {
+              if (viewLength + 5 < dataLength) {
+                viewLength += 5;
+              } else {
+                viewLength = dataLength;
+              }
+              loading = false;
+            });
+          });
         }
       }
     });
@@ -46,7 +63,7 @@ class _ContactListState extends State<ContactList> {
               padding: const EdgeInsets.only(right: 20.0),
               child: GestureDetector(
                 onTap: () {
-                  timestampSwitch(timestampflag);
+                  timestampView(timestampflag);
                 },
                 child: const Icon(
                   Icons.date_range,
@@ -56,107 +73,93 @@ class _ContactListState extends State<ContactList> {
         ],
       ),
       body: Center(
-        child: FutureBuilder(
-          builder: (context, snapshot) {
-            return RefreshIndicator(
-                onRefresh: genContacts,
-                child: ListView.builder(
-                  controller: scontroller,
-                  itemCount: dataLength,
-                  itemBuilder: (BuildContext context, int index) {
-                    Contacts.sort((a, b) {
-                      return a.compareTo(b);
-                    });
-                    return ListTile(
-                      leading: const Icon(Icons.person),
-                      isThreeLine: true,
-                      title: Padding(
-                        padding: const EdgeInsets.only(bottom: 10.0),
-                        child: Text(Contacts[index].name),
-                      ),
-                      subtitle: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(Contacts[index].phone),
-                          Text(parseCheckIn(
-                              Contacts[index].checkin, timestampflag))
-                        ],
-                      ),
-                    );
-                  },
-                ));
-          },
-        ),
-      ),
+          child: Column(
+        children: <Widget>[
+          Expanded(
+              child: RefreshIndicator(
+                  onRefresh: genContacts,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    controller: scontroller,
+                    itemCount: viewLength,
+                    itemBuilder: (BuildContext context, int index) {
+                      Contacts.sort((a, b) {
+                        return a.compareTo(b);
+                      });
+                      return ListTile(
+                        leading: const Icon(
+                          Icons.person,
+                          size: 40,
+                        ),
+                        isThreeLine: true,
+                        title: Padding(
+                          padding: const EdgeInsets.only(bottom: 10.0),
+                          child: Text(Contacts[index].name),
+                        ),
+                        subtitle: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(Contacts[index].phone),
+                            Text(parseCheckIn(
+                                Contacts[index].checkin, timestampflag))
+                          ],
+                        ),
+                        trailing: GestureDetector(
+                          onTap: () {
+                            share(Contacts[index]);
+                          },
+                          child: const Icon(
+                            Icons.share,
+                            size: 26.0,
+                          ),
+                        ),
+                      );
+                    },
+                  ))),
+          Container(
+              margin: const EdgeInsets.all(0),
+              child: loading
+                  ? const LinearProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(Colors.blue),
+                      backgroundColor: Colors.white,
+                      color: Colors.blue,
+                      minHeight: 10,
+                    )
+                  : null),
+        ],
+      )),
     );
   }
 
-  Future<void> genContacts() async {
-    var names = await http.get(
-        Uri.parse(
-            'https://randommer.io/api/Name?nameType=fullname&quantity=5'), // limited to 1000 call/day
-        headers: {"X-Api-Key": "97fbe4ad9b914a38a4acb129eb0b6c1b"});
-    var phones = await http.get(
-        Uri.parse(
-            'https://randommer.io/api/Phone/Generate?CountryCode=my&Quantity=5'), // limited to 1000 call/day
-        headers: {"X-Api-Key": "97fbe4ad9b914a38a4acb129eb0b6c1b"});
-
-    if (names.statusCode == 200 && phones.statusCode == 200) {
-      late List<Contact> newContacts = [];
-      var name = json.decode(names.body);
-      var phone = json.decode(phones.body);
-      for (int i = 0; i < 5; i++) {
-        var now = DateTime.now().toString();
-        Contact newContact = Contact(name[i], phone[i], now);
-        newContacts.add(newContact);
-        setState(() {
-          Contacts.add(newContact);
-          dataLength++;
-        });
-      }
-      updateDatabase(newContacts); // add newly generated contacts to database
-    } else {
-      throw Exception('Api Failed');
-    }
+  share(Contact con) {
+    Share.share(
+        'Contact: ${con.name} \n Phone: ${con.phone} \n Added at: ${con.checkin}');
   }
 
-  void timestampSwitch(bool current) {
-    var flag;
-    if (current) {
-      flag = false;
-    } else {
-      flag = true;
-    }
+  Future<void> genContacts() async {
+    List<Contact> newContacts = await generateContacts();
     setState(() {
-      timestampflag = flag;
+      for (int i = 0; i < newContacts.length; i++) {
+        Contacts.add(newContacts[i]);
+        dataLength++;
+      }
     });
+    updateDatabaseContacts(newContacts);
+  }
+
+  Future<void> timestampView(bool current) async {
+    setState(() {
+      timestampflag = current ? false : true;
+    });
+    await timestampSwitch(current);
     getContacts();
   }
 
-  void updateDatabase(List<Contact> cons) async {
-    String jsonContacts = jsonEncode(cons);
-    var response = await http.post(
-        Uri.parse('http://localhost:3000/addcontacts'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonContacts);
-  }
-
   Future<void> getContacts() async {
-    List<Contact> contacts = [];
-    var data;
-    try {
-      var _contacts =
-          await http.get(Uri.parse('http://localhost:3000/getcontacts'));
-      if (_contacts.statusCode == 200) {
-        data = await json.decode(_contacts.body);
-        // print(data);
-        contacts = List<Contact>.from(data.map((i) => Contact.fromJson(i)));
-      }
-    } catch (e) {
-      print("fetching data failed");
-      print(e);
-    }
+    List<Contact> contacts = await fetchContacts();
+    bool fdata = await getTimestamp();
     setState(() {
+      timestampflag = fdata;
       Contacts = contacts;
       dataLength = contacts.length;
     });

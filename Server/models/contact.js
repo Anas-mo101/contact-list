@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const ASchema = mongoose.Schema;
 
 const contactSchema = new ASchema({
-    name: 
+    user: 
     {
         type: String,
         required: true,

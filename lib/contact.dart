@@ -9,7 +9,7 @@ class Contact implements Comparable<Contact> {
         json['checkin'] as String);
   }
 
-  Map toJson() => {'name': name, 'phone': phone, 'checkin': checkin};
+  Map toJson() => {'user': name, 'phone': phone, 'checkin': checkin};
 
   @override
   int compareTo(Contact other) {
