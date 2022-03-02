@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'contact.dart';
 import 'api_handler.dart';
-import 'package:share_plus/share_plus.dart';
+import 'search.dart';
+import 'general.dart';
 
 class ContactList extends StatefulWidget {
   const ContactList({Key? key}) : super(key: key);
@@ -13,6 +15,8 @@ class ContactList extends StatefulWidget {
 
 class _ContactListState extends State<ContactList> {
   final scontroller = ScrollController();
+  TextEditingController tcontroller = TextEditingController();
+  TextEditingController ncontroller = TextEditingController();
   late List<Contact> Contacts = [];
   var dataLength = 0;
   var viewLength = 9;
@@ -63,6 +67,35 @@ class _ContactListState extends State<ContactList> {
               padding: const EdgeInsets.only(right: 20.0),
               child: GestureDetector(
                 onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SearchPage(
+                        contacts: Contacts,
+                      ),
+                    ),
+                  );
+                },
+                child: const Icon(
+                  Icons.search,
+                  size: 26.0,
+                ),
+              )),
+          Padding(
+              padding: const EdgeInsets.only(right: 20.0),
+              child: GestureDetector(
+                onTap: () {
+                  showForm();
+                },
+                child: const Icon(
+                  Icons.person_add,
+                  size: 26.0,
+                ),
+              )),
+          Padding(
+              padding: const EdgeInsets.only(right: 20.0),
+              child: GestureDetector(
+                onTap: () {
                   timestampView(timestampflag);
                 },
                 child: const Icon(
@@ -87,33 +120,46 @@ class _ContactListState extends State<ContactList> {
                         return a.compareTo(b);
                       });
                       return ListTile(
-                        leading: const Icon(
-                          Icons.person,
-                          size: 40,
-                        ),
-                        isThreeLine: true,
-                        title: Padding(
-                          padding: const EdgeInsets.only(bottom: 10.0),
-                          child: Text(Contacts[index].name),
-                        ),
-                        subtitle: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(Contacts[index].phone),
-                            Text(parseCheckIn(
-                                Contacts[index].checkin, timestampflag))
-                          ],
-                        ),
-                        trailing: GestureDetector(
-                          onTap: () {
-                            share(Contacts[index]);
-                          },
-                          child: const Icon(
-                            Icons.share,
-                            size: 26.0,
+                          leading: const Icon(
+                            Icons.person,
+                            size: 40,
                           ),
-                        ),
-                      );
+                          isThreeLine: true,
+                          title: Padding(
+                            padding: const EdgeInsets.only(bottom: 10.0),
+                            child: Text(Contacts[index].name),
+                          ),
+                          subtitle: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(Contacts[index].phone),
+                              Text(parseCheckIn(
+                                  Contacts[index].checkin, timestampflag))
+                            ],
+                          ),
+                          trailing: Wrap(
+                            spacing: 12,
+                            children: <Widget>[
+                              GestureDetector(
+                                onTap: () {
+                                  share(Contacts[index]);
+                                },
+                                child: const Icon(
+                                  Icons.share,
+                                  size: 26.0,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  delContactAction(Contacts[index]);
+                                },
+                                child: const Icon(
+                                  Icons.delete,
+                                  size: 26.0,
+                                ),
+                              )
+                            ],
+                          ));
                     },
                   ))),
           Container(
@@ -131,9 +177,55 @@ class _ContactListState extends State<ContactList> {
     );
   }
 
-  share(Contact con) {
-    Share.share(
-        'Contact: ${con.name} \n Phone: ${con.phone} \n Added at: ${con.checkin}');
+  Future showForm() => showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+            title: const Text("Add New Contact"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  autofocus: true,
+                  decoration: const InputDecoration(hintText: "Contact Name"),
+                  controller: tcontroller,
+                ),
+                TextField(
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  decoration: const InputDecoration(hintText: "Contact Number"),
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  controller: ncontroller,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Add'),
+                onPressed: () {
+                  addContactAction();
+                },
+              )
+            ],
+          ));
+
+  Future<void> delContactAction(Contact contact) async {
+    setState(() {
+      Contacts.remove(contact);
+      dataLength--;
+    });
+    await delContact(contact);
+  }
+
+  Future<void> addContactAction() async {
+    Navigator.of(context).pop();
+    if (tcontroller.text == " " || tcontroller.text.isEmpty) return;
+    if (ncontroller.text == " " || ncontroller.text.isEmpty) return;
+    setState(() {
+      Contacts.add(Contact(
+          tcontroller.text, ncontroller.text, DateTime.now().toString()));
+      dataLength++;
+    });
+    await addContact(tcontroller.text, ncontroller.text);
   }
 
   Future<void> genContacts() async {
@@ -144,7 +236,7 @@ class _ContactListState extends State<ContactList> {
         dataLength++;
       }
     });
-    updateDatabaseContacts(newContacts);
+    await updateDatabaseContacts(newContacts);
   }
 
   Future<void> timestampView(bool current) async {
@@ -162,42 +254,7 @@ class _ContactListState extends State<ContactList> {
       timestampflag = fdata;
       Contacts = contacts;
       dataLength = contacts.length;
+      viewLength = contacts.length < 9 ? contacts.length : 9;
     });
-  }
-
-  parseCheckIn(timestamp, flag) {
-    if (flag) {
-      var now = DateTime.now();
-      var date = DateTime.parse(timestamp);
-      var diff = now.difference(date);
-
-      if (diff.inSeconds < 1) {
-        return "now";
-      } else if (diff.inSeconds >= 1 && diff.inSeconds < 60) {
-        return diff.inSeconds.toString() + " seconds ago";
-      } else if (diff.inMinutes >= 1 && diff.inMinutes < 60) {
-        return diff.inMinutes.toString() + " minutes ago";
-      } else if (diff.inHours >= 1 && diff.inHours < 24) {
-        return diff.inHours.toString() + " hours ago";
-      } else if (diff.inDays >= 1 && diff.inDays < 7) {
-        if (diff.inDays == 1) {
-          return diff.inDays.toString() + " day ago";
-        } else {
-          return diff.inDays.toString() + " days ago";
-        }
-      } else if (diff.inDays >= 7 && diff.inDays < 30) {
-        if (diff.inDays >= 7 && diff.inDays < 14) {
-          return "one week ago";
-        } else if (diff.inDays >= 14 && diff.inDays < 21) {
-          return "two weeks ago";
-        } else if (diff.inDays >= 21 && diff.inDays < 30) {
-          return "three weeks ago";
-        }
-      } else {
-        return "more than a month ago";
-      }
-    } else {
-      return timestamp;
-    }
   }
 }

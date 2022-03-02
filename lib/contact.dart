@@ -22,4 +22,8 @@ class Contact implements Comparable<Contact> {
       return 0;
     }
   }
+
+  String getName() {
+    return name;
+  }
 }

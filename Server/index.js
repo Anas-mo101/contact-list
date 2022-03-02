@@ -61,6 +61,27 @@ app.post('/addcontacts', async (req, res) => {
     });
 });
 
+app.post('/addcontact', async (req, res) => {
+    const contact = new Contact({
+        user: req.body.user,
+        phone: req.body.phone,
+        checkin: req.body.checkin,
+    });
+    contact.save();
+});
+
+app.post('/delcontact', async (req, res) => {
+    Contact.findOneAndDelete({user: req.body.user, phone: req.body.phone},
+     (err) => { 
+        if (err) {
+            console.log(err);
+        } else {
+            console.log("deleted contact");
+        } 
+    })
+});
+
+
 app.post('/settimestamp', async (req, res) => { 
     console.log("set timestamp to: " + req.body.flag);
     Settings.updateOne(
